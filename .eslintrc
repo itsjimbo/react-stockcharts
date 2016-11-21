@@ -22,17 +22,23 @@
 			"node_modules",
 			"\\.(json|css|jpg|png|gif|eot|svg|ttf|woff|woff2|mp4|webm)$",
 		],
-		"import/extensions": [".js"],
+		"import/extensions": [".js", ".jsx"],
 		"import/resolver": {
 			"node": {
-				"extensions": [".js", ".json"]
+				"extensions": [".js", ".jsx", ".json"]
 			}
 		},
 		"flowtype": {
 			"onlyFilesWithFlowAnnotation": true
 		}
 	},
-	"extends": ["eslint:recommended", "plugin:react/recommended", "plugin:flowtype/recommended"],
+	"extends": [
+		"eslint:recommended",
+		"plugin:react/recommended",
+		"plugin:flowtype/recommended",
+		"plugin:import/errors",
+		"plugin:import/warnings"
+	],
 	"rules": {
 		"jsx-a11y/aria-role": "warn",
 		"jsx-a11y/img-has-alt": "warn",

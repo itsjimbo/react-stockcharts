@@ -18,19 +18,37 @@ var { XAxis, YAxis } = axes;
 var { fitWidth } = helper;
 
 class CandleStickChartWithZoomPan extends React.Component {
+	constructor(props) {
+		super(props);
+		this.saveNode = this.saveNode.bind(this);
+		this.resetYDomain = this.resetYDomain.bind(this);
+	}
+	saveNode(node) {
+		this.node = node;
+	}
+	resetYDomain() {
+		this.node.resetYDomain();
+	}
 	render() {
 		var { data, type, width, ratio } = this.props;
+		var { disableMouseMoveEvent, disablePanEvent, disableZoomEvent } = this.props;
+		var { clamp } = this.props;
 		return (
-			<ChartCanvas ratio={ratio} width={width} height={400}
+			<ChartCanvas ref={this.saveNode}
+					ratio={ratio} width={width} height={400}
 					margin={{ left: 70, right: 70, top: 10, bottom: 30 }} type={type}
 					seriesName="MSFT"
 					data={data}
+					disableMouseMoveEvent={disableMouseMoveEvent}
+					disablePanEvent={disablePanEvent}
+					disableZoomEvent={disableZoomEvent}
+					clamp={clamp}
 					xAccessor={d => d.date} xScaleProvider={discontinuousTimeScaleProvider}
-					xExtents={[new Date(2012, 0, 1), new Date(2012, 6, 2)]}>
+					xExtents={[new Date(2016, 0, 1), new Date(2016, 9, 11)]}>
 				<Chart id={1}
 						yExtents={[d => [d.high, d.low]]}>
-					<XAxis axisAt="bottom" orient="bottom"/>
-					<YAxis axisAt="right" orient="right" ticks={5} />
+					<XAxis axisAt="bottom" orient="bottom" zoomEnabled={!disableZoomEvent} />
+					<YAxis axisAt="right" orient="right" ticks={5} zoomEnabled={!disableZoomEvent} />
 
 					<MouseCoordinateY
 						at="right"
@@ -43,7 +61,7 @@ class CandleStickChartWithZoomPan extends React.Component {
 				<Chart id={2}
 						yExtents={d => d.volume}
 						height={150} origin={(w, h) => [0, h - 150]}>
-					<YAxis axisAt="left" orient="left" ticks={5} tickFormat={format(".0s")}/>
+					<YAxis axisAt="left" orient="left" ticks={5} tickFormat={format(".0s")} zoomEnabled={!disableZoomEvent} />
 
 					<MouseCoordinateX
 						at="bottom"
@@ -71,8 +89,12 @@ CandleStickChartWithZoomPan.propTypes = {
 
 CandleStickChartWithZoomPan.defaultProps = {
 	type: "svg",
+	disableMouseMoveEvent: false,
+	disablePanEvent: false,
+	disableZoomEvent: false,
+	clamp: false,
 };
-CandleStickChartWithZoomPan = fitWidth(CandleStickChartWithZoomPan);
 
+CandleStickChartWithZoomPan = fitWidth(CandleStickChartWithZoomPan);
 
 export default CandleStickChartWithZoomPan;

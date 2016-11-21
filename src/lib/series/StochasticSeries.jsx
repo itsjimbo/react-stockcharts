@@ -42,19 +42,17 @@ class StochasticSeries extends Component {
 
 function getHorizontalLine(props, yValue, stroke) {
 
-	/* eslint-disable react/prop-types */
-	var { yAccessor } = props;
-	/* eslint-enable react/prop-types */
-
 	return <StraightLine
 		stroke={stroke} opacity={0.3}
-		yAccessor={yAccessor}
 		yValue={yValue} />;
 }
 
 StochasticSeries.propTypes = {
 	className: PropTypes.string,
-	calculator: PropTypes.func.isRequired,
+	calculator: PropTypes.oneOfType([
+		PropTypes.func,
+		PropTypes.object,
+	]).isRequired,
 	xScale: PropTypes.func,
 	yScale: PropTypes.func,
 	xAccessor: PropTypes.func,

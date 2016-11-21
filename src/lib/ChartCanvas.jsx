@@ -13,6 +13,7 @@ import {
 	identity,
 	noop,
 	functor,
+	getLogger,
 } from "./utils";
 
 import { getNewChartConfig, getChartConfigWithUpdatedYScales, getCurrentCharts, getCurrentItem } from "./utils/ChartDataUtil";
@@ -22,11 +23,11 @@ import EventCapture from "./EventCapture";
 import CanvasContainer from "./CanvasContainer";
 import evaluator from "./scale/evaluator";
 
+const log = getLogger("ChartCanvas");
+
 const CANDIDATES_FOR_RESET = ["seriesName", /* "data",*/
 	"xScaleProvider", /* "xAccessor",*/"map",
 	"indexAccessor", "indexMutator"];
-
-const debug = true;
 
 function shouldResetChart(thisProps, nextProps) {
 	return !CANDIDATES_FOR_RESET.every(key => {
@@ -88,7 +89,7 @@ function getXScaleDirection(flipXScale) {
 }
 
 function calculateFullData(props) {
-	var { data: inputData, calculator, plotFull, xScale: xScaleProp } = props;
+	var { data: inputData, calculator, plotFull, xScale: xScaleProp, clamp } = props;
 	var { xAccessor: inputXAccesor, map, xScaleProvider, indexAccessor, indexMutator } = props;
 
 	var wholeData = isDefined(plotFull)
@@ -109,6 +110,7 @@ function calculateFullData(props) {
 		.width(dimensions.width)
 		.scaleProvider(xScaleProvider)
 		.xScale(xScaleProp)
+		.clamp(clamp)
 		.calculator(calculator);
 
 	var { xAccessor, displayXAccessor, xScale, fullData, filterData } = evaluate(inputData);
@@ -116,10 +118,8 @@ function calculateFullData(props) {
 	return { xAccessor, displayXAccessor, xScale, fullData, filterData };
 }
 function resetChart(props, firstCalculation = false) {
-	if (debug) {
-		if (process.env.NODE_ENV !== "production") {
-			if (!firstCalculation) console.log("CHART RESET");
-		}
+	if (process.env.NODE_ENV !== "production") {
+		if (!firstCalculation) log("CHART RESET");
 	}
 
 	var state = calculateState(props);
@@ -146,10 +146,8 @@ function updateChart(newState, initialXScale, props, lastItemWasVisible) {
 	var lastItem = last(fullData);
 	var [start, end] = initialXScale.domain();
 
-	if (debug) {
-		if (process.env.NODE_ENV !== "production") {
-			console.log("TRIVIAL CHANGE");
-		}
+	if (process.env.NODE_ENV !== "production") {
+		log("TRIVIAL CHANGE");
 	}
 
 	var { postCalculator, children, padding, flipXScale } = props;
@@ -275,7 +273,10 @@ class ChartCanvas extends Component {
 		this.state = {};
 	}
 	getDataInfo() {
-		return this.state;
+		return {
+			...this.state,
+			fullData: this.fullData,
+		};
 	}
 	getCanvasContexts() {
 		if (this.refs && this.refs.canvases) {
@@ -433,6 +434,7 @@ class ChartCanvas extends Component {
 	handleZoom(zoomDirection,zoomMultiplier , mouseXY, e) {
 		// console.log("zoomDirection ", zoomDirection, " mouseXY ", mouseXY);
 		var { xAccessor, xScale: initialXScale, plotData: initialPlotData } = this.state;
+		var { zoomMultiplier } = this.props;
 
 		var item = getCurrentItem(initialXScale, xAccessor, mouseXY, initialPlotData),
 			cx = initialXScale(xAccessor(item)),
@@ -616,7 +618,8 @@ class ChartCanvas extends Component {
 		this.triggerEvent("click", {}, e);
 	}
 	handleDoubleClick(mousePosition, e) {
-		if (debug) console.log("double clicked");
+		// if (debug) console.log("double clicked");
+		log("double clicked");
 		this.triggerEvent("dblclick", {}, e);
 	}
 	handlePanEnd(mousePosition, panStartXScale, panOrigin, chartsToPan, e) {
@@ -692,15 +695,13 @@ class ChartCanvas extends Component {
 
 		var newState;
 		if (!interaction || reset || !shallowEqual(this.props.xExtents, nextProps.xExtents)) {
-			if (debug) {
-				if (process.env.NODE_ENV !== "production") {
-					if (!interaction)
-						console.log("RESET CHART, changes to a non interactive chart");
-					else if (reset)
-						console.log("RESET CHART, one or more of these props changed", CANDIDATES_FOR_RESET);
-					else
-						console.log("xExtents changed");
-				}
+			if (process.env.NODE_ENV !== "production") {
+				if (!interaction)
+					log("RESET CHART, changes to a non interactive chart");
+				else if (reset)
+					log("RESET CHART, one or more of these props changed", CANDIDATES_FOR_RESET);
+				else
+					log("xExtents changed");
 			}
 			// do reset
 			newState = resetChart(nextProps);
@@ -713,15 +714,13 @@ class ChartCanvas extends Component {
 			var { xAccessor } = calculatedState;
 			var lastItemWasVisible = xAccessor(prevLastItem) <= end && xAccessor(prevLastItem) >= start;
 
-			if (debug) {
-				if (process.env.NODE_ENV !== "production") {
-					if (this.props.data !== nextProps.data)
-						console.log("data is changed but seriesName did not, change the seriesName if you wish to reset the chart and lastItemWasVisible = ", lastItemWasVisible);
-					else if (!shallowEqual(this.props.calculator, nextProps.calculator))
-						console.log("calculator changed");
-					else
-						console.log("Trivial change, may be width/height or type changed, but that does not matter");
-				}
+			if (process.env.NODE_ENV !== "production") {
+				if (this.props.data !== nextProps.data)
+					log("data is changed but seriesName did not, change the seriesName if you wish to reset the chart and lastItemWasVisible = ", lastItemWasVisible);
+				else if (!shallowEqual(this.props.calculator, nextProps.calculator))
+					log("calculator changed");
+				else
+					log("Trivial change, may be width/height or type changed, but that does not matter");
 			}
 			newState = updateChart(calculatedState, this.state.xScale, nextProps, lastItemWasVisible);
 		}
@@ -730,10 +729,8 @@ class ChartCanvas extends Component {
 		var { chartConfig: initialChartConfig } = this.state;
 
 		if (this.panInProgress) {
-			if (debug) {
-				if (process.env.NODE_ENV !== "production") {
-					console.log("Pan is in progress");
-				}
+			if (process.env.NODE_ENV !== "production") {
+				log("Pan is in progress");
 			}
 		} else {
 			if (!reset) {
@@ -781,7 +778,7 @@ class ChartCanvas extends Component {
 	}
 	render() {
 
-		var { type, height, width, margin, className, zIndex, defaultFocus, ratio } = this.props;
+		var { type, height, width, margin, className, zIndex, defaultFocus, ratio, disableMouseMoveEvent, disablePanEvent, disableZoomEvent } = this.props;
 		var { useCrossHairStyleCursor, drawMode, onSelect } = this.props;
 
 		var { plotData, xScale, xAccessor, chartConfig } = this.state;
@@ -806,9 +803,9 @@ class ChartCanvas extends Component {
 					</defs>
 					<g transform={`translate(${margin.left + 0.5}, ${margin.top + 0.5})`}>
 						<EventCapture
-							mouseMove={interaction}
-							zoom={interaction}
-							pan={interaction && !drawMode}
+							mouseMove={!disableMouseMoveEvent && interaction}
+							zoom={!disableZoomEvent && interaction}
+							pan={!disablePanEvent && interaction && !drawMode}
 
 							width={dimensions.width}
 							height={dimensions.height}
@@ -887,8 +884,12 @@ ChartCanvas.propTypes = {
 		})
 	]).isRequired,
 	defaultFocus: PropTypes.bool,
+	zoomMultiplier: PropTypes.number.isRequired,
 	onLoadMore: PropTypes.func,
 	displayXAccessor: PropTypes.func,
+	disableMouseMoveEvent: PropTypes.bool.isRequired,
+	disablePanEvent: PropTypes.bool.isRequired,
+	disableZoomEvent: PropTypes.bool.isRequired,
 	onSelect: PropTypes.func,
 };
 
@@ -912,6 +913,10 @@ ChartCanvas.defaultProps = {
 	defaultFocus: true,
 	onLoadMore: noop,
 	onSelect: noop,
+	disableMouseMoveEvent: false,
+	disablePanEvent: false,
+	disableZoomEvent: false,
+	zoomMultiplier: 1.1,
 	// ratio: 2,
 };
 

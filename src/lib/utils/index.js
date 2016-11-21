@@ -26,11 +26,19 @@ export {
 	PureComponent,
 };
 
+export function getLogger(prefix) {
+	return (process.env.NODE_ENV !== "production")
+		? require("debug")("react-stockcharts:" + prefix)
+		: noop;
+}
+
 export function path(path = []) {
 	var key = Array.isArray(path) ? path : [path];
 	var length = key.length;
 
 	return function(obj, defaultValue) {
+		if (length === 0) return isDefined(obj) ? obj : defaultValue;
+
 		var index = 0;
 		while (obj != null && index < length) {
 			obj = obj[key[index++]];
