@@ -90,7 +90,8 @@ function getXScaleDirection(flipXScale) {
 
 function calculateFullData(props) {
 	var { data: inputData, calculator, plotFull, xScale: xScaleProp, clamp } = props;
-	var { xAccessor: inputXAccesor, map, xScaleProvider, indexAccessor, indexMutator } = props;
+	var { map, xScaleProvider, indexAccessor, indexMutator } = props;
+	var { xAccessor: inputXAccesor, displayXAccessor: inputDisplayXAccessor } = props;
 
 	var wholeData = isDefined(plotFull)
 			? plotFull
@@ -115,7 +116,13 @@ function calculateFullData(props) {
 
 	var { xAccessor, displayXAccessor, xScale, fullData, filterData } = evaluate(inputData);
 
-	return { xAccessor, displayXAccessor, xScale, fullData, filterData };
+	return {
+		xAccessor,
+		displayXAccessor: inputDisplayXAccessor || displayXAccessor,
+		xScale,
+		fullData,
+		filterData
+	};
 }
 function resetChart(props, firstCalculation = false) {
 	if (process.env.NODE_ENV !== "production") {
@@ -256,6 +263,7 @@ class ChartCanvas extends Component {
 		this.yAxisZoom = this.yAxisZoom.bind(this);
 		this.resetYDomain = this.resetYDomain.bind(this);
 		this.calculateStateForDomain = this.calculateStateForDomain.bind(this);
+		this.generateSubscriptionId = this.generateSubscriptionId.bind(this);
 
 		this.pinchCoordinates = this.pinchCoordinates.bind(this);
 
@@ -265,12 +273,12 @@ class ChartCanvas extends Component {
 		this.subscriptions = [];
 		this.subscribe = this.subscribe.bind(this);
 		this.unsubscribe = this.unsubscribe.bind(this);
-		this.draw = this.draw.bind(this);
 		// this.canvasDrawCallbackList = [];
 		this.interactiveState = [];
 		this.panInProgress = false;
 
 		this.state = {};
+		this.lastSubscriptionId = 0;
 	}
 	getDataInfo() {
 		return {
@@ -283,10 +291,13 @@ class ChartCanvas extends Component {
 			return this.refs.canvases.getCanvasContexts();
 		}
 	}
+	generateSubscriptionId() {
+		this.lastSubscriptionId++;
+		return this.lastSubscriptionId;
+	}
 	clearBothCanvas() {
 		var canvases = this.getCanvasContexts();
 		if (canvases && canvases.axes) {
-			// console.log("CLEAR");
 			clearCanvas([canvases.axes, canvases.mouseCoord], this.props.ratio);
 		}
 	}
@@ -311,9 +322,11 @@ class ChartCanvas extends Component {
 		this.subscriptions = this.subscriptions.filter(each => each.id !== id);
 	}
 	handleMouseEnter(e) {
-		this.triggerEvent("mouseenter", {
-			show: true,
-		}, e);
+		requestAnimationFrame(() => {
+			this.triggerEvent("mouseenter", {
+				show: true,
+			}, e);
+		});
 	}
 	handleMouseMove(mouseXY, inputType, e) {
 		var { chartConfig, plotData, xScale, xAccessor } = this.state;
@@ -322,16 +335,14 @@ class ChartCanvas extends Component {
 
 		var currentItem = getCurrentItem(xScale, xAccessor, mouseXY, plotData);
 
-		this.triggerEvent("mousemove", {
-			show: true,
-			mouseXY,
-			currentItem,
-			currentCharts,
-		}, e);
-
 		requestAnimationFrame(() => {
 			this.clearMouseCanvas();
-			this.draw();
+			this.triggerEvent("mousemove", {
+				show: true,
+				mouseXY,
+				currentItem,
+				currentCharts,
+			}, e);
 		});
 	}
 	handleContextMenu(mouseXY, e) {
@@ -340,26 +351,20 @@ class ChartCanvas extends Component {
 		var currentCharts = getCurrentCharts(chartConfig, mouseXY);
 		var currentItem = getCurrentItem(xScale, xAccessor, mouseXY, plotData);
 
-		this.triggerEvent("contextmenu", {
-			mouseXY,
-			currentItem,
-			currentCharts,
-		}, e);
-		this.draw();
+		requestAnimationFrame(() => {
+			this.triggerEvent("contextmenu", {
+				mouseXY,
+				currentItem,
+				currentCharts,
+			}, e);
+		});
 	}
 	handleMouseLeave(e) {
-		var contexts = this.getCanvasContexts();
+		requestAnimationFrame(() => {
+			this.clearMouseCanvas();
+			this.triggerEvent("mouseleave", { show: false }, e);
+		});
 
-		// this.clearInteractiveCanvas();
-
-		if (contexts && contexts.mouseCoord) {
-			clearCanvas([contexts.mouseCoord], this.props.ratio);
-		}
-		this.triggerEvent("mouseleave", { show: false }, e);
-		this.draw();
-		/* this.setState({
-			show: false
-		}); */
 	}
 	pinchCoordinates(pinch) {
 		var { touch1Pos, touch2Pos } = pinch;
@@ -431,46 +436,6 @@ class ChartCanvas extends Component {
 		// document.getElementById("debug_here").innerHTML = `${id[1] - id[0]} = ${initial.left - id[0]} + ${initial.right - initial.left} + ${id[1] - initial.right}`;
 		// document.getElementById("debug_here").innerHTML = `${range[1] - range[0]}, ${i1[0]}, ${i2[0]}`;
 	}
-	handleZoom(zoomDirection,zoomMultiplier , mouseXY, e) {
-		// console.log("zoomDirection ", zoomDirection, " mouseXY ", mouseXY);
-		var { xAccessor, xScale: initialXScale, plotData: initialPlotData } = this.state;
-		var { zoomMultiplier } = this.props;
-
-		var item = getCurrentItem(initialXScale, xAccessor, mouseXY, initialPlotData),
-			cx = initialXScale(xAccessor(item)),
-			c = zoomDirection > 0 ? 1 * zoomMultiplier : 1 / zoomMultiplier,
-			newDomain = initialXScale.range().map(x => cx + (x - cx) * c).map(initialXScale.invert);
-
-		var { xScale, plotData, chartConfig } = this.calculateStateForDomain(newDomain);
-
-		var currentItem = getCurrentItem(xScale, xAccessor, mouseXY, plotData);
-		var currentCharts = getCurrentCharts(chartConfig, mouseXY);
-		this.clearBothCanvas();
-		// this.clearInteractiveCanvas();
-
-		this.triggerEvent("zoom", {
-			mouseXY,
-			currentCharts,
-			currentItem,
-		}, e);
-
-		var { fullData } = this;
-		var firstItem = first(fullData);
-
-		var start = first(xScale.domain());
-		var end = xAccessor(firstItem);
-		var { onLoadMore } = this.props;
-
-		this.setState({
-			xScale,
-			plotData,
-			chartConfig,
-		}, () => {
-			if (start < end) {
-				onLoadMore(start, end);
-			}
-		});
-	}
 	calculateStateForDomain(newDomain) {
 		var { xAccessor, xScale: initialXScale, chartConfig: initialChartConfig, plotData: initialPlotData } = this.state;
 		var { filterData } = this.state;
@@ -493,6 +458,46 @@ class ChartCanvas extends Component {
 			plotData,
 			chartConfig,
 		};
+	}
+	handleZoom(zoomDirection, mouseXY, e) {
+		// console.log("zoomDirection ", zoomDirection, " mouseXY ", mouseXY);
+		var { xAccessor, xScale: initialXScale, plotData: initialPlotData } = this.state;
+		var { zoomMultiplier } = this.props;
+
+		var item = getCurrentItem(initialXScale, xAccessor, mouseXY, initialPlotData),
+			cx = initialXScale(xAccessor(item)),
+			c = zoomDirection > 0 ? 1 * zoomMultiplier : 1 / zoomMultiplier,
+			newDomain = initialXScale.range().map(x => cx + (x - cx) * c).map(initialXScale.invert);
+
+		var { xScale, plotData, chartConfig } = this.calculateStateForDomain(newDomain);
+
+		var currentItem = getCurrentItem(xScale, xAccessor, mouseXY, plotData);
+		var currentCharts = getCurrentCharts(chartConfig, mouseXY);
+		this.clearBothCanvas();
+		// this.clearInteractiveCanvas();
+
+		var { fullData } = this;
+		var firstItem = first(fullData);
+
+		var start = first(xScale.domain());
+		var end = xAccessor(firstItem);
+		var { onLoadMore } = this.props;
+
+		this.setState({
+			xScale,
+			plotData,
+			chartConfig,
+		}, () => {
+			this.triggerEvent("zoom", {
+				mouseXY,
+				currentCharts,
+				currentItem,
+			}, e);
+
+			if (start < end) {
+				onLoadMore(start, end);
+			}
+		});
 	}
 	xAxisZoom(newDomain) {
 		var { xScale, plotData, chartConfig } = this.calculateStateForDomain(newDomain);
@@ -575,23 +580,15 @@ class ChartCanvas extends Component {
 			currentItem,
 		};
 	}
-	draw() {/*
-		var { chartCanvasType } = this.props;
-		if (chartCanvasType === "svg") {
-			this.setState({
-				random: Math.random()
-			});
-		} else {*/
-		this.subscriptions.forEach(each => {
-			// console.log(each)
-			each.callback("draw");
-		});
-		// }
-	}
 	triggerEvent(type, props, e) {
 		this.subscriptions.forEach(each => {
 			// console.log(each)
-			each.callback(type, props, e);
+			each.callback(type, {
+				...this.state,
+				fullData: this.fullData,
+				subscriptions: this.subscriptions,
+				...props,
+			}, e);
 		});
 	}
 	handlePan(mousePosition, panStartXScale, panOrigin, chartsToPan, e) {
@@ -604,23 +601,26 @@ class ChartCanvas extends Component {
 		this.hackyWayToStopPanBeyondBounds__domain = state.xScale.domain();
 
 		this.panInProgress = true;
-		this.triggerEvent("pan", state, e);
+
 		requestAnimationFrame(() => {
 			this.clearBothCanvas();
-			this.draw();
+			this.triggerEvent("pan", state, e);
 		});
 	}
 	handleMouseDown(mousePosition, currentCharts, e) {
-		this.triggerEvent("mousedown", null, e);
+		requestAnimationFrame(() => {
+			this.triggerEvent("mousedown", null, e);
+		});
 	}
 	handleClick(mousePosition, e) {
-		// console.log("clicked", e.shiftKey);
-		this.triggerEvent("click", {}, e);
+		requestAnimationFrame(() => {
+			this.triggerEvent("click", {}, e);
+		});
 	}
 	handleDoubleClick(mousePosition, e) {
-		// if (debug) console.log("double clicked");
-		log("double clicked");
-		this.triggerEvent("dblclick", {}, e);
+		requestAnimationFrame(() => {
+			this.triggerEvent("dblclick", {}, e);
+		});
 	}
 	handlePanEnd(mousePosition, panStartXScale, panOrigin, chartsToPan, e) {
 		var state = this.panHelper(mousePosition, panStartXScale, panOrigin, chartsToPan);
@@ -630,7 +630,6 @@ class ChartCanvas extends Component {
 
 		this.panInProgress = false;
 
-		this.triggerEvent("panend", state, e);
 		// console.log("PANEND", panEnd++);
 		var {
 			xScale,
@@ -654,13 +653,13 @@ class ChartCanvas extends Component {
 				plotData,
 				chartConfig,
 			}, () => {
+				this.triggerEvent("panend", state, e);
 				if (start < end) onLoadMore(start, end);
 			});
 		});
 	}
 	getChildContext() {
 		var dimensions = getDimensions(this.props);
-
 		return {
 			fullData: this.fullData,
 			plotData: this.state.plotData,
@@ -669,7 +668,7 @@ class ChartCanvas extends Component {
 			chartConfig: this.state.chartConfig,
 			xScale: this.state.xScale,
 			xAccessor: this.state.xAccessor,
-			displayXAccessor: this.props.displayXAccessor || this.state.displayXAccessor,
+			displayXAccessor: this.state.displayXAccessor,
 			chartCanvasType: this.props.type,
 			margin: this.props.margin,
 			ratio: this.props.ratio,
@@ -680,6 +679,7 @@ class ChartCanvas extends Component {
 			getCanvasContexts: this.getCanvasContexts,
 			subscribe: this.subscribe,
 			unsubscribe: this.unsubscribe,
+			generateSubscriptionId: this.generateSubscriptionId,
 		};
 	}
 	componentWillMount() {
@@ -710,7 +710,7 @@ class ChartCanvas extends Component {
 			var [start, end] = this.state.xScale.domain();
 			var prevLastItem = last(this.fullData);
 
-			let calculatedState = calculateFullData(nextProps);
+			var calculatedState = calculateFullData(nextProps);
 			var { xAccessor } = calculatedState;
 			var lastItemWasVisible = xAccessor(prevLastItem) <= end && xAccessor(prevLastItem) >= start;
 
@@ -958,6 +958,7 @@ ChartCanvas.childContextTypes = {
 	yAxisZoom: PropTypes.func,
 	subscribe: PropTypes.func,
 	unsubscribe: PropTypes.func,
+	generateSubscriptionId: PropTypes.func,
 };
 
 ChartCanvas.ohlcv = d => ({ date: d.date, open: d.open, high: d.high, low: d.low, close: d.close, volume: d.volume });
