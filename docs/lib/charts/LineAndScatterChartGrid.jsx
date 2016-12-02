@@ -15,20 +15,41 @@ var { OHLCTooltip } = tooltip;
 var { XAxis, YAxis } = axes;
 var { fitWidth } = helper;
 
-class LineAndScatterChart extends React.Component {
+class LineAndScatterChartGrid extends React.Component {
 	render() {
-		var { data, type, width, ratio } = this.props;
+		var { data, type, width, ratio, gridProps } = this.props;
+		var margin = { left: 70, right: 70, top: 20, bottom: 30 };
+
+		const height = 400;
+		var gridHeight = height - margin.top - margin.bottom;
+		var gridWidth = width - margin.left - margin.right;
+
+		var showGrid = true;
+		var yGrid = showGrid ? { innerTickSize: -1 * gridWidth } : {};
+		var xGrid = showGrid ? { innerTickSize: -1 * gridHeight } : {};
+
 		return (
-			<ChartCanvas ratio={ratio} width={width} height={400}
-					margin={{left: 70, right: 70, top:20, bottom: 30}} type={type}
+			<ChartCanvas ratio={ratio} width={width} height={height}
+					margin={margin} type={type}
 					seriesName="MSFT"
 					data={data}
 					xAccessor={d => d.date} xScaleProvider={discontinuousTimeScaleProvider}
 					xExtents={[new Date(2012, 0, 1), new Date(2012, 2, 2)]}>
 				<Chart id={1}
-						yExtents={d => [d.high, d.low, d.AAPLClose, d.GEClose]}>
-					<XAxis axisAt="bottom" orient="bottom"/>
-					<YAxis axisAt="right" orient="right" ticks={5} />
+						yExtents={d => [d.high, d.low]}>
+					<XAxis
+						axisAt="bottom"
+						orient="bottom"
+						{...gridProps}
+						{...xGrid}
+					/>
+					<YAxis
+						axisAt="right"
+						orient="right"
+						ticks={5}
+						{...gridProps}
+						{...yGrid}
+					/>
 					<MouseCoordinateX
 						at="bottom"
 						orient="bottom"
@@ -39,27 +60,13 @@ class LineAndScatterChart extends React.Component {
 						displayFormat={format(".2f")} />
 
 					<LineSeries
-						yAccessor={d => d.AAPLClose}
+						yAccessor={d => d.close}
 						stroke="#ff7f0e"
-						strokeDasharray="Dot" />
+					/>
 					<ScatterSeries
-						yAccessor={d => d.AAPLClose}
+						yAccessor={d => d.close}
 						marker={SquareMarker}
 						markerProps={{ width: 6, stroke: "#ff7f0e", fill: "#ff7f0e" }} />
-					<LineSeries
-						yAccessor={d => d.GEClose}
-						stroke="#2ca02c" />
-					<ScatterSeries
-						yAccessor={d => d.GEClose}
-						marker={TriangleMarker}
-						markerProps={{ width: 8, stroke: "#2ca02c", fill: "#2ca02c" }} />
-					<LineSeries
-						yAccessor={d => d.close}
-						strokeDasharray="LongDash" />
-					<ScatterSeries
-						yAccessor={d => d.close}
-						marker={CircleMarker}
-						markerProps={{ r: 3 }} />
 					<OHLCTooltip forChart={1} origin={[-40, 0]}/>
 				</Chart>
 
@@ -70,16 +77,16 @@ class LineAndScatterChart extends React.Component {
 	}
 }
 
-LineAndScatterChart.propTypes = {
+LineAndScatterChartGrid.propTypes = {
 	data: React.PropTypes.array.isRequired,
 	width: React.PropTypes.number.isRequired,
 	ratio: React.PropTypes.number.isRequired,
 	type: React.PropTypes.oneOf(["svg", "hybrid"]).isRequired,
 };
 
-LineAndScatterChart.defaultProps = {
+LineAndScatterChartGrid.defaultProps = {
 	type: "svg",
 };
-LineAndScatterChart = fitWidth(LineAndScatterChart);
+LineAndScatterChartGrid = fitWidth(LineAndScatterChartGrid);
 
-export default LineAndScatterChart;
+export default LineAndScatterChartGrid;
