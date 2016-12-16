@@ -20,7 +20,9 @@ class LineAndScatterChart extends React.Component {
 		var { data, type, width, ratio } = this.props;
 		return (
 			<ChartCanvas ratio={ratio} width={width} height={400}
-					margin={{left: 70, right: 70, top:20, bottom: 30}} type={type}
+					margin={{ left: 70, right: 70, top: 20, bottom: 30 }}
+					type={type}
+					pointsPerPxThreshold={1}
 					seriesName="MSFT"
 					data={data}
 					xAccessor={d => d.date} xScaleProvider={discontinuousTimeScaleProvider}
@@ -28,7 +30,13 @@ class LineAndScatterChart extends React.Component {
 				<Chart id={1}
 						yExtents={d => [d.high, d.low, d.AAPLClose, d.GEClose]}>
 					<XAxis axisAt="bottom" orient="bottom"/>
-					<YAxis axisAt="right" orient="right" ticks={5} />
+					<YAxis
+						axisAt="right"
+						orient="right"
+						// tickInterval={5}
+						// tickValues={[40, 60]}
+						ticks={5}
+					/>
 					<MouseCoordinateX
 						at="bottom"
 						orient="bottom"

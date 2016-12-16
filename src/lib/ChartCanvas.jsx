@@ -89,7 +89,7 @@ function getXScaleDirection(flipXScale) {
 }
 
 function calculateFullData(props) {
-	var { data: inputData, calculator, plotFull, xScale: xScaleProp, clamp } = props;
+	var { data: inputData, calculator, plotFull, xScale: xScaleProp, clamp, pointsPerPxThreshold } = props;
 	var { map, xScaleProvider, indexAccessor, indexMutator } = props;
 	var { xAccessor: inputXAccesor, displayXAccessor: inputDisplayXAccessor } = props;
 
@@ -104,6 +104,7 @@ function calculateFullData(props) {
 		// .intervalCalculator(intervalCalculator)
 		.xAccessor(inputXAccesor)
 		// .discontinuous(discontinuous)
+		.pointsPerPxThreshold(pointsPerPxThreshold)
 		.indexAccessor(indexAccessor)
 		.indexMutator(indexMutator)
 		.map(map)
@@ -852,6 +853,7 @@ ChartCanvas.propTypes = {
 	ratio: PropTypes.number.isRequired,
 	// interval: PropTypes.oneOf(["D", "W", "M"]), // ,"m1", "m5", "m15", "W", "M"
 	type: PropTypes.oneOf(["svg", "hybrid"]).isRequired,
+	pointsPerPxThreshold: PropTypes.number,
 	data: PropTypes.array.isRequired,
 	// initialDisplay: PropTypes.number,
 	calculator: PropTypes.arrayOf(PropTypes.func).isRequired,
@@ -902,6 +904,7 @@ ChartCanvas.defaultProps = {
 	indexMutator: (d, idx) => ({ ...d, idx }),
 	map: identity,
 	type: "hybrid",
+	pointsPerPxThreshold: 2,
 	calculator: [],
 	className: "react-stockchart",
 	zIndex: 1,
